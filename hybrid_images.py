@@ -89,11 +89,15 @@ def align_images(im1, im2):
     im1, im2 = match_img_size(im1, im2)
     return im1, im2
 
+def combine(im1, im2):
+    im = im1 + im2
+    im = im / im.max()
+    return im
 
 if __name__ == "__main__":
 
-    imageDir = '../Images/'
-    outDir = '../Results/'
+    imageDir = './Images/'
+    outDir = './Results/'
 
     im1_name = 'Monroe.jpg'
     im2_name = 'Einstein.jpg'
@@ -120,9 +124,8 @@ if __name__ == "__main__":
     # Now you are ready to write your own code for creating hybrid images!
     im_low = im1_aligned
     im_high = im2_aligned
-    im = im_low + im_high
-
-    im = im / im.max()
+    
+    im = combine(im_low, im_high)
 	
     if isGray:
         plt.imsave(outDir + im1_name[:-4] + '_' + im2_name[:-4] + '_Hybrid.jpg', im, cmap='gray')

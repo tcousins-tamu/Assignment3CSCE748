@@ -26,8 +26,8 @@ def PyramidBlend(source, mask, target):
 
 if __name__ == '__main__':
     # Setting up the input output paths
-    inputDir = '../Images/'
-    outputDir = '../Results/'
+    inputDir = './Images/'
+    outputDir = './Results/'
 
     # main area to specify files and display blended image
 
