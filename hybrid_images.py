@@ -109,7 +109,11 @@ def combine(im1, im2):
         _type_: array containing the finalized output
     """
     im = im1 + im2
-    im = im / im.max()
+    #Case added for returning RGB
+    if len(im1.shape)>2:
+        im = im/np.max(im, axis=(1,2), keepdims=True)
+    else:
+        im = im / im.max()
     return im
 
 
@@ -150,10 +154,33 @@ def hybridImages(im1, im2, stdv=.1, mu=1, kernelSz=3):
     lowPass = gaussianKernel(stdv, mu, kernelSz)
     highPass = 1-lowPass
 
-    lowIm1 = scipy.signal.convolve2d(im1, lowPass)
-    highIm2 = scipy.signal.convolve2d(im2, highPass)
+    if len(im1.shape)>2:
+            
+        im1Out = []
+        im2Out = []
+        print("SHAPE", im1.shape)
+        for dim in range(im1.shape[-1]):
+            lowIm1 = scipy.signal.convolve2d(im1[:, :, dim], lowPass)
+            highIm2 = scipy.signal.convolve2d(im2[:, :, dim], highPass)
+            im1Out.append(lowIm1)
+            im2Out.append(highIm2)
+            
+        im1Out = np.asarray(im1Out)
+        im1Out = np.swapaxes(im1Out, 0, 2)
+        im1Out = np.swapaxes(im1Out, 0, 1)
+        
+        im2Out = np.asarray(im2Out)
+        im2Out = np.swapaxes(im2Out, 0, 2)
+        im2Out = np.swapaxes(im2Out, 0, 1)
+        
+        print("SHAPE: ", im1Out.shape)
+        return combine(im1Out, im2Out)
+    
+    else:
+        lowIm1 = scipy.signal.convolve2d(im1, lowPass)
+        highIm2 = scipy.signal.convolve2d(im2, highPass)
 
-    return combine(lowIm1, highIm2)
+        return combine(lowIm1, highIm2)
 
 
 if __name__ == "__main__":
@@ -161,8 +188,8 @@ if __name__ == "__main__":
     imageDir = './Images/'
     outDir = './Results/'
 
-    im1_name = 'Monroe.jpg'
-    im2_name = 'Einstein.jpg'
+    im1_name = 'TheRock2.jpg'
+    im2_name = 'VinDiesel.jpg'
 
     # 1. load the images
 
@@ -184,19 +211,26 @@ if __name__ == "__main__":
     im1_aligned, im2_aligned = align_images(im1, im2)
 
     if isGray:
-        im1_aligned = np.mean(im1_aligned, axis=2)
         im2_aligned = np.mean(im2_aligned, axis=2)
+        #This section of code was used for setting only one image to gray, usd for writeup
+        # im2_aligned = np.asarray([im2_aligned, im2_aligned, im2_aligned])
+        # im2_aligned = np.swapaxes(im2_aligned, 0, 2)
+        # im2_aligned = np.swapaxes(im2_aligned, 0, 1)
+        #print(im1aligned.shape())
+        im1_aligned = np.mean(im1_aligned, axis=2)
 
     # Now you are ready to write your own code for creating hybrid images!
     im_low = im1_aligned
     im_high = im2_aligned
 
     #im = combine(im_low, im_high)
-    im = hybridImages(im_low, im_high, stdv=.5, mu=0, kernelSz=3)
+    #im = hybridImages(im_low, im_high, stdv=.2, mu=.49, kernelSz=3)
+    im = hybridImages(im_low, im_high, stdv=.25, mu=.47, kernelSz=3)
+
     print("here")
     if isGray:
         plt.imsave(outDir + im1_name[:-4] + '_' +
-                   im2_name[:-4] + '_Hybrid.jpg', im, cmap='gray')
+                   im2_name[:-4] + '_Hybrid.jpg', im, cmap = "gray")
     else:
         plt.imsave(outDir + im1_name[:-4] + '_' +
                    im2_name[:-4] + '_Hybrid.jpg', im)

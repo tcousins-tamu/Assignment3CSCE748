@@ -87,20 +87,26 @@ def PyramidBlend(source, mask, target, **kwargs):
         print(pM.shape, lSource.shape, pSource.shape, "HERE")
 
         mergedLaplace.append((pM)*lSource+((1-pM)*lTarget))
-
         pM = nM
         pSource = nSource
         pTarget = nTarget
 
+    #Getting the final, small image
+    topImage = pM*pSource + (1-pM)*pTarget
+    mergedLaplace.append(topImage) #putting the top image in the back to be scaled back up
     # Scaling back up
     # When we are scaling back up we will resize to the size given in the mergedLaplace
     mergedLaplace = mergedLaplace[::-1]
     for step in range(0, len(mergedLaplace)-1):
+        print("****************************************")
+        print(np.min(mergedLaplace[step]))
         scaledUp = resize(mergedLaplace[step], mergedLaplace[step+1].shape)
+        print(np.min(scaledUp))
         mergedLaplace[step+1] = scaledUp+mergedLaplace[step+1]
 
     # Normalized to avoid color errors
-    output = mergedLaplace[-1]/np.max(mergedLaplace[-1])
+    output = mergedLaplace[-1]-np.min(mergedLaplace[-1])
+    output = output/np.max(output)
     print(np.max(output), np.min(output))
     return output
 
@@ -111,7 +117,7 @@ if __name__ == '__main__':
     outputDir = './Results/'
 
     # main area to specify files and display blended image
-    index = 1
+    index = 3
 
     # Read data and clean mask
     source, maskOriginal, target = Read(str(index).zfill(2), inputDir)
@@ -122,7 +128,9 @@ if __name__ == '__main__':
 
     # For the purposes of this lab ALL IMAGES ARE 300x300
     # Lazy way of enforcing this rule, takes bottom left of each image
-
+    print(mask)
+    source = resize(source, mask.shape)
+    target = resize(target, mask.shape)
     # mask = mask[:300, :300]
     # source = source[:300, :300]
     # target = target[:300, :300]
