@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import scipy
 import skimage.transform as sktr
 
-isGray = True
+isGray = False
 
 
 def get_points(im1, im2):
@@ -117,27 +117,34 @@ def combine(im1, im2):
     return im
 
 
-def gaussianKernel(stdv=.1, mu=0, kernelSz=3):
-    """Returns a gaussian kernel according to the two parameter gaussiam
-    function 1/(2pi*sigma**2) * e**((-x**2+y**2)/(2*sigma**2))
+# def gaussianKernel(stdv=.1, mu=0, kernelSz=3):
+#     """Returns a gaussian kernel according to the two parameter gaussiam
+#     function 1/(2pi*sigma**2) * e**((-x**2+y**2)/(2*sigma**2))
 
-    Args:
-        stdv (float, optional): _description_. Defaults to .1.
-        mu (float, optional): _description_. Defaults to 1.
-        kernelSz (int, optional): _description_. Defaults to 3.
-    Returns:
-        array: array containing the Gaussian Kernel
+#     Args:
+#         stdv (float, optional): _description_. Defaults to .1.
+#         mu (float, optional): _description_. Defaults to 1.
+#         kernelSz (int, optional): _description_. Defaults to 3.
+#     Returns:
+#         array: array containing the Gaussian Kernel
+#     """
+#     # creating the kernel and initializing w/ garbage values
+#     x, y = np.meshgrid(np.linspace(-1, 1, kernelSz),
+#                        np.linspace(-1, 1, kernelSz))
+
+#     mag = np.sqrt(x**2+y**2)
+#     kernel = np.exp(-((mag-mu)**2 / (2.0 * stdv**2)))
+
+#     # need to normalize kernel
+#     return kernel/(np.max(kernel))
+def gkern(l=5, sig=1.):
+    """\
+    creates gaussian kernel with side length `l` and a sigma of `sig`
     """
-    # creating the kernel and initializing w/ garbage values
-    x, y = np.meshgrid(np.linspace(-1, 1, kernelSz),
-                       np.linspace(-1, 1, kernelSz))
-
-    mag = np.sqrt(x**2+y**2)
-    kernel = np.exp(-((mag-mu)**2 / (2.0 * stdv**2)))
-
-    # need to normalize kernel
-    return kernel/(np.max(kernel))
-
+    ax = np.linspace(-(l - 1) / 2., (l - 1) / 2., l)
+    gauss = np.exp(-0.5 * np.square(ax) / np.square(sig))
+    kernel = np.outer(gauss, gauss)
+    return kernel / np.sum(kernel)
 
 def hybridImages(im1, im2, stdv=.1, mu=1, kernelSz=3):
     """This Function Creates a Hybrid Image output given two input images.
@@ -152,19 +159,30 @@ def hybridImages(im1, im2, stdv=.1, mu=1, kernelSz=3):
     """
 
     # Step One: Forming the kernel for the low and high pass cases
-    lowPass = gaussianKernel(stdv, mu, kernelSz)
-    highPass = 1-lowPass
-
+    lowPass = gkern(kernelSz, stdv)
+    # lowPass = np.array([[-1, -1, -1, -1, -1],
+    #                [-1,  1,  2,  1, -1],
+    #                [-1,  2,  4,  2, -1],
+    #                [-1,  1,  2,  1, -1],
+    #                [-1, -1, -1, -1, -1]])
+    
     if len(im1.shape) > 2:
 
         im1Out = []
         im2Out = []
+        
+        im2padded = []
+        
         print("SHAPE", im1.shape)
         for dim in range(im1.shape[-1]):
             lowIm1 = scipy.signal.convolve2d(im1[:, :, dim], lowPass)
-            highIm2 = scipy.signal.convolve2d(im2[:, :, dim], highPass)
-            im1Out.append(lowIm1)
-            im2Out.append(highIm2)
+            highIm2 = scipy.signal.convolve2d(im2[:, :, dim], lowPass)
+            padIm2 = np.pad(im2[:,:, dim], ((np.asarray(highIm2.shape)-np.asarray(im2.shape[:-1]))/2).astype(int))
+                        
+            im1Out.append(lowIm1/np.max(lowIm1))
+            im2Out.append(highIm2/np.max(highIm2))
+            im2padded.append(padIm2)
+
 
         im1Out = np.asarray(im1Out)
         im1Out = np.swapaxes(im1Out, 0, 2)
@@ -173,24 +191,50 @@ def hybridImages(im1, im2, stdv=.1, mu=1, kernelSz=3):
         im2Out = np.asarray(im2Out)
         im2Out = np.swapaxes(im2Out, 0, 2)
         im2Out = np.swapaxes(im2Out, 0, 1)
+        
+        im2Pad = np.asarray(im2padded)
+        im2Pad = np.swapaxes(im2Pad, 0, 2)
+        im2Pad = np.swapaxes(im2Pad, 0, 1)
+        
+        print(np.asarray(im2Out.shape[:-1])-np.asarray(im2.shape[:-1]))
+        print(im1.shape, im2Out.shape, "SHAPES")
 
+
+        im2Out = im2Pad-im2Out
+
+        
         print("SHAPE: ", im1Out.shape)
         return combine(im1Out, im2Out)
 
     else:
         lowIm1 = scipy.signal.convolve2d(im1, lowPass)
-        highIm2 = scipy.signal.convolve2d(im2, highPass)
+        lowIm2 = scipy.signal.convolve2d(im2, lowPass)
+  
+        identity = gkern(kernelSz, 1000000)
+        print("\n", "identitiy", identity)
+        highIm2 = scipy.signal.convolve2d(im2, identity)
 
+        highIm2 = highIm2-lowIm2
+
+        lowIm1 = lowIm1/np.max(lowIm1)
+        highIm2 = highIm2/np.max(highIm2)
+        
+        plt.imsave("./Results/" + 'lowPass.jpg', lowIm1, cmap="gray")        
+        plt.imsave("./Results/" + 'highPass.jpg', highIm2, cmap="gray")
+        
         return combine(lowIm1, highIm2)
 
 
 if __name__ == "__main__":
 
-    imageDir = '../Images/'
-    outDir = '../Results/'
-
-    im1_name = 'TheRock2.jpg'
-    im2_name = 'VinDiesel.jpg'
+    imageDir = './Images/'
+    outDir = './Results/'
+    
+    im1_name = 'Monroe.jpg'
+    im2_name = 'Einstein.jpg'
+    
+    # im1_name = 'TheRock2.jpg'
+    # im2_name = 'VinDiesel.jpg'
 
     # 1. load the images
 
@@ -226,7 +270,7 @@ if __name__ == "__main__":
 
     #im = combine(im_low, im_high)
     #im = hybridImages(im_low, im_high, stdv=.2, mu=.49, kernelSz=3)
-    im = hybridImages(im_low, im_high, stdv=.25, mu=.47, kernelSz=3)
+    im = hybridImages(im_low, im_high, stdv=6, kernelSz=7)
 
     print("here")
     if isGray:
