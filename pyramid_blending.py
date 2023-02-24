@@ -59,8 +59,6 @@ def PyramidBlend(source, mask, target, **kwargs):
     # For each gaussian pyramid step we are SMOOTHING THEN subsampling
     # Prior to this, we need to ensure that the images are of the correct size
 
-    # stepsSource = []  # The laplace at each step of the transform
-    # stepsTarget = []  # The laplace at each step of the transform
     mergedLaplace = []  # Contains the merged laplacian output for each step
 
     pM = mask
@@ -91,30 +89,27 @@ def PyramidBlend(source, mask, target, **kwargs):
         pSource = nSource
         pTarget = nTarget
 
-    #Getting the final, small image
+    # Getting the final, small image
     topImage = pM*pSource + (1-pM)*pTarget
-    mergedLaplace.append(topImage) #putting the top image in the back to be scaled back up
+    # putting the top image in the back to be scaled back up
+    mergedLaplace.append(topImage)
     # Scaling back up
     # When we are scaling back up we will resize to the size given in the mergedLaplace
     mergedLaplace = mergedLaplace[::-1]
     for step in range(0, len(mergedLaplace)-1):
-        print("****************************************")
-        print(np.min(mergedLaplace[step]))
         scaledUp = resize(mergedLaplace[step], mergedLaplace[step+1].shape)
-        print(np.min(scaledUp))
         mergedLaplace[step+1] = scaledUp+mergedLaplace[step+1]
 
     # Normalized to avoid color errors
     output = mergedLaplace[-1]-np.min(mergedLaplace[-1])
     output = output/np.max(output)
-    print(np.max(output), np.min(output))
     return output
 
 
 if __name__ == '__main__':
     # Setting up the input output paths
-    inputDir = './Images/'
-    outputDir = './Results/'
+    inputDir = '../Images/'
+    outputDir = '../Results/'
 
     # main area to specify files and display blended image
     index = 3
@@ -128,7 +123,6 @@ if __name__ == '__main__':
 
     # For the purposes of this lab ALL IMAGES ARE 300x300
     # Lazy way of enforcing this rule, takes bottom left of each image
-    print(mask)
     source = resize(source, mask.shape)
     target = resize(target, mask.shape)
     # mask = mask[:300, :300]
